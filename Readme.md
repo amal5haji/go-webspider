@@ -1,12 +1,14 @@
 # Go Web Spider
 
-A Go library and command-line tool to crawl websites and extract clean, textual content. It recursively crawls pages starting from a given URL, removes common clutter (navigation, ads, popups), extracts the main article text, and provides the aggregated content.
+A Go library and command-line tool to crawl websites and extract **clean, main textual content**. It recursively crawls pages starting from a given URL, effectively **removes common clutter (navigation, ads, footers, headers, popups, cookie banners)**, and provides the aggregated primary content.
 
 ## Features
 
 *   **Recursive Crawling:** Crawls multiple pages up to a specified depth and page limit.
-*   **Content Cleaning:** Removes navigation bars, footers, headers, popups, ads, and other non-essential elements.
-*   **Main Content Extraction:** Uses readability logic to focus on the primary article text.
+*   **Smart Content Cleaning:**
+    *   **Main Content Focus:** Extracts the primary article or text content using readability logic.
+    *   **Clutter Removal:** Aggressively removes navigation bars, footers, headers, sidebars, ads, and social widgets.
+    *   **Popup/Overlay Handling:** Identifies and removes common elements like cookie consent banners, newsletter signups, modals, and lightboxes.
 *   **Flexible Output:** Get results directly in code or output to a file via the CLI.
 *   **Configurable:** Control crawl depth, number of pages, concurrency, delays, and timeouts.
 *   **Link Discovery:** Reports internal links found and identifies downloadable files (PDFs, Docs, etc.).
@@ -81,7 +83,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/amal5haji/go-webspider/webspider" 
+	"github.com/amal5haji/go-webspider/webspider"
 )
 
 func main() {
@@ -128,20 +130,75 @@ Make sure your `go.mod` includes the dependency:
 
 ```bash
 go mod init your-example-project # Or your preferred module name
-go get github.com/amal5haji/go-webspider 
+go get github.com/amal5haji/go-webspider
 go mod tidy
 go run example_usage.go
 ```
 
+## Architecture & Workflow
 
-## How It Works
+This diagram illustrates the core crawling and processing flow:
 
-1.  The `webspider` package manages the multi-page crawl logic, respecting depth and page limits.
-2.  For each page, it calls the internal `webcrawl` package.
-3.  The `webcrawl` package fetches the HTML, removes clutter (navigation, ads, popups), and attempts to extract the main textual content using readability techniques.
-4.  Links found on each page are checked against the crawl rules (domain, depth) and added to the queue if appropriate.
-5.  Content from all successfully crawled pages is aggregated.
-6.  The final result includes the combined text, statistics (pages crawled, failed), and lists of crawled/failed URLs and detected files.
+```
++-------------------+
+|   Start URL       |
++-------------------+
+          |
+          v
++-------------------+     Yes
+| URL Queue Empty?  | -----> [End Crawl]
++-------------------+
+          | No
+          v
++-------------------+     +----------------------+
+| Get URL from      | --> | Fetch HTML (webcrawl)|
+| Queue             |     +----------------------+
++-------------------+               |
+                                    v
+                    +---------------------------------+
+                    | Clean HTML (Remove popups, ads, |
+                    | nav, footers, etc.)             |
+                    +---------------------------------+
+                                    |
+                                    v
+                    +---------------------------------+
+                    | Extract Main Content (Readability|
+                    | or Manual Selection)            |
+                    +---------------------------------+
+                                    |
+                                    v
+                    +---------------------------------+
+                    | Append Content to Result        |
+                    | Add URL to Crawled List         |
+                    +---------------------------------+
+                                    |
+                                    v
+                    +---------------------------------+
+                    | Extract Links from Cleaned Page |
+                    +---------------------------------+
+                                    |
+                                    v
+         +------------------------------------------------------+
+         | For Each Link:                                       |
+         |   - Is it within crawl depth & page limit?           |
+         |   - Is it on the same domain/subdomain (if allowed)? |
+         |   Yes --> Add to URL Queue                          |
+         |   No  --> Discard / Log (File Links)                |
+         +------------------------------------------------------+
+                                    |
+                                    v
+                          [Loop Back to Queue Check]
+```
+
+1.  The process starts with a single URL placed in a queue.
+2.  Worker goroutines (limited by `Concurrency`) pull URLs from the queue.
+3.  Each worker fetches the HTML for its assigned URL using the internal `webcrawl` logic.
+4.  The fetched HTML undergoes extensive cleaning to remove unwanted elements, including targeted removal of popups and overlays.
+5.  The `webcrawl` package then attempts to extract only the *main* content of the page (e.g., the article body) using readability libraries or manual heuristics.
+6.  The extracted text content is appended to the overall result.
+7.  Links are extracted from the *cleaned* HTML to find new pages to crawl.
+8.  Each discovered link is validated against the crawl rules (depth, domain, max pages). Valid links are added back to the central queue.
+9.  The process repeats until the queue is empty or limits are reached.
 
 ## Dependencies
 
