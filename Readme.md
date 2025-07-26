@@ -16,7 +16,6 @@ A Go library and command-line tool to crawl websites and extract clean, textual 
 ```bash
 go get github.com/amal5haji/go-webspider
 ```
-*(Replace `amal5haji` with your actual GitHub username)*
 
 Ensure you have Go installed (version 1.16 or later is recommended).
 
@@ -129,12 +128,11 @@ Make sure your `go.mod` includes the dependency:
 
 ```bash
 go mod init your-example-project # Or your preferred module name
-go get github.com/amal5haji/go-webspider # Replace with your actual path
+go get github.com/amal5haji/go-webspider 
 go mod tidy
 go run example_usage.go
 ```
 
-Replace `amal5haji` with your actual GitHub username where the `go-webspider` repository is hosted.
 
 ## How It Works
 
